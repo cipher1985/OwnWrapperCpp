@@ -47,3 +47,8 @@ void CDelayStateChecker::SetState(int state)
     m_state = state;
     m_lastUpdateTime = std::chrono::steady_clock::now();
 }
+
+int QtDelayStateChecker::GetState()
+{
+    return m_state;
+}
