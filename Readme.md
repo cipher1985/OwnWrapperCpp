@@ -7,6 +7,10 @@
 		<th>功能说明</th>
 	</tr>
 	<tr>
+		<td>QtDelayStateChecker</td>
+		<td>延时转换状态检测器</td>
+	</tr>
+	<tr>
 		<td>QtDownloader</td>
 		<td>文件下载类</td>
 	</tr>
@@ -23,12 +27,12 @@
 		<td>简易日志类</td>
 	</tr>
 	<tr>
-		<td>QtZipWrapper</td>
-		<td>zip压缩操作类</td>
+		<td>QtTomlParser</td>
+		<td>Toml解析器类</td>
 	</tr>
 	<tr>
-		<td>QtDelayStateChecker</td>
-		<td>延时转换状态检测器</td>
+		<td>QtZipWrapper</td>
+		<td>zip压缩操作类</td>
 	</tr>
 </table>
 
