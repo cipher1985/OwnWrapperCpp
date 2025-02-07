@@ -29,10 +29,10 @@ public:
     bool getBool(const QString& key, bool defaultValue = false);
     int64_t getInt(const QString& key, int64_t defaultValue = 0);
     double getFloat(const QString& key, double defaultValue = 0.0);
-    QString getString(const QString& key, QString defaultValue = QString());
-    QDate getDate(const QString& key, QDate defaultValue = QDate());
-    QTime getTime(const QString& key, QTime defaultValue = QTime());
-    QDateTime getDateTime(const QString& key, QDateTime defaultValue = QDateTime());
+    QString getString(const QString& key, const QString& defaultValue = QString());
+    QDate getDate(const QString& key, const QDate& defaultValue = QDate());
+    QTime getTime(const QString& key, const QTime& defaultValue = QTime());
+    QDateTime getDateTime(const QString& key, const QDateTime& defaultValue = QDateTime());
     toml::table* getTable(const QString& key);
     toml::array* getArray(const QString& key);
     toml::node* getNode(const QString& key);
@@ -44,20 +44,29 @@ public:
     void setData(const QString& key, const QDate& value);
     void setTime(const QString& key, const QTime& value);
     void setDateTime(const QString& key, const QDateTime& value);
-    void setTable(const QString& key, const toml::table* value);
-    void setArray(const QString& key, const toml::array* value);
-    void setNode(const QString& key, const toml::node* value);
+    void setTable(const QString& key, const toml::table& value);
+    void setArray(const QString& key, const toml::array& value);
+    void setNode(const QString& key, const toml::node& value);
     //保存数据(文件名为空保存为当前打开文件)
-    bool saveFile(QString tomlFile = QString());
+    bool saveFile(const QString& tomlFile = QString());
     //获得当前Toml数据字符串
     QString getTomlString();
 private:
     static void convertJsonToToml(
         const QJsonObject& jsonObject, toml::table& tomlTable);
+    template<typename T>
+    void setValue(const QString& key, const T &value);
     toml::table* getCurTable();
     toml::table m_rootTable;
     QStack<toml::table*> m_nodeStack;
     QString m_curPathFile;
 };
+
+template<typename T>
+inline void QtTomlParser::setValue(const QString &key, const T &value)
+{
+    toml::table* curTable = getCurTable();
+    curTable->insert_or_assign(key.toUtf8().data(), value);
+}
 
 #endif // QTTOMLPARSER_H

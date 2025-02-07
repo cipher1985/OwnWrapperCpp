@@ -4,12 +4,14 @@
 #include <QJsonObject>
 #include <QJsonArray>
 #include <QJsonDocument>
+
+#include <fstream>
 #include <sstream>
 
 QString QtTomlParser::tomlToJson(const QString &tomlString)
 {
     try {
-        auto tomlData = toml::parse(tomlString.toUtf8().data());
+        auto tomlData = toml::parse(tomlString.toStdString());
         std::ostringstream oss;
         oss << toml::json_formatter(tomlData);
         return QString::fromStdString(oss.str());
@@ -94,7 +96,7 @@ bool QtTomlParser::loadFile(const QString &tomlFile)
 bool QtTomlParser::loadText(const QString &tomlString)
 {
     try {
-        std::istringstream is(tomlString.toUtf8().data());
+        std::istringstream is(tomlString.toStdString().data());
         m_rootTable = toml::parse(is);
         m_curPathFile.clear();
         while(m_nodeStack.size() > 1)
@@ -111,7 +113,7 @@ bool QtTomlParser::into(const QString &key)
     auto parts = key.split('.', Qt::SkipEmptyParts);
 
     for(auto& part : parts) {
-        auto node = current->get(part.toUtf8().data());
+        auto node = current->get(part.toStdString());
         if(!node || !node->is_table())
             return false;
         current = node->as_table();
@@ -122,71 +124,89 @@ bool QtTomlParser::into(const QString &key)
 
 void QtTomlParser::outof()
 {
-    if(m_nodeStack.size() > 1)
+    if(!m_nodeStack.empty())
         m_nodeStack.pop();
 }
 
 bool QtTomlParser::getBool(const QString &key, bool defaultValue)
 {
-    toml::node* node = getNode(key);
-    if(node && node->is_boolean())
+    try {
+        toml::node* node = getNode(key);
         return node->as_boolean()->value_or(defaultValue);
-    return defaultValue;
+    } catch(...) {
+        return defaultValue;
+    }
 }
 
 int64_t QtTomlParser::getInt(const QString &key, int64_t defaultValue)
 {
-    toml::node* node = getNode(key);
-    if(node && (node->is_floating_point() || node->is_integer()))
+    try {
+        toml::node* node = getNode(key);
         return node->as_integer()->value_or(defaultValue);
-    return defaultValue;
+    } catch(...) {
+        return defaultValue;
+    }
 }
 
 double QtTomlParser::getFloat(const QString &key, double defaultValue)
 {
-    toml::node* node = getNode(key);
-    if(node && (node->is_floating_point() || node->is_integer()))
+    try {
+        toml::node* node = getNode(key);
         return node->as_floating_point()->value_or(defaultValue);
-    return defaultValue;
+    } catch(...) {
+        return defaultValue;
+    }
 }
 
-QString QtTomlParser::getString(const QString &key, QString defaultValue)
+QString QtTomlParser::getString(const QString &key, const QString& defaultValue)
 {
-    toml::node* node = getNode(key);
-    if(!node || !node->is_string())
+    try {
+        toml::node* node = getNode(key);
+        std::string ret = node->as_string()->value_or(defaultValue.toStdString());
+        return QString::fromStdString(ret);
+    } catch(...) {
         return defaultValue;
-    std::string ret = node->as_string()->
-        value_or(defaultValue.toStdString());
-    return QString::fromStdString(ret);
+    }
 }
 
-QDate QtTomlParser::getDate(const QString &key, QDate defaultValue)
+QDate QtTomlParser::getDate(const QString &key, const QDate& defaultValue)
 {
-    toml::node* node = getNode(key);
-    if(!node || !node->is_date())
+    toml::date d(defaultValue.year(), defaultValue.month(), defaultValue.day());
+    try {
+        toml::node* node = getNode(key);
+        toml::date ret = node->as_date()->value_or(d);
+        return QDate(ret.year, ret.month, ret.day);
+    } catch(...) {
         return defaultValue;
-    toml::date& d = node->as_date()->get();
-    return QDate(d.year, d.month, d.day);
+    }
 }
 
-QTime QtTomlParser::getTime(const QString &key, QTime defaultValue)
+QTime QtTomlParser::getTime(const QString &key, const QTime& defaultValue)
 {
-    toml::node* node = getNode(key);
-    if(!node || !node->is_time())
+    toml::time t(defaultValue.hour(), defaultValue.minute(), defaultValue.second());
+    try {
+        toml::node* node = getNode(key);
+        toml::time ret = node->as_time()->value_or(t);
+        return QTime(ret.hour, ret.minute, ret.second);
+    } catch(...) {
         return defaultValue;
-    toml::time& t = node->as_time()->get();
-    return QTime(t.hour, t.minute, t.second);
+    }
 }
 
-QDateTime QtTomlParser::getDateTime(const QString &key, QDateTime defaultValue)
+QDateTime QtTomlParser::getDateTime(const QString &key, const QDateTime& defaultValue)
 {
-    toml::node* node = getNode(key);
-    if(!node || !node->is_date_time())
+    toml::date d(defaultValue.date().year(), defaultValue.date().month(), defaultValue.date().day());
+    toml::time t(defaultValue.time().hour(), defaultValue.time().minute(), defaultValue.time().second());
+    toml::date_time dt(d, t);
+    try {
+        toml::node* node = getNode(key);
+        toml::date_time ret = node->as_date_time()->value_or(dt);
+        return QDateTime(
+            QDate(ret.date.year, ret.date.month, ret.date.day),
+            QTime(ret.time.hour, ret.time.minute, ret.time.second));
+    } catch(...) {
         return defaultValue;
-    toml::date_time& dt = node->as_date_time()->get();
-    return QDateTime(
-        QDate(dt.date.year, dt.date.month, dt.date.day),
-        QTime(dt.time.hour, dt.time.minute, dt.time.second));
+    }
 }
 
 toml::table *QtTomlParser::getTable(const QString &key)
@@ -208,8 +228,8 @@ toml::array *QtTomlParser::getArray(const QString &key)
 toml::node *QtTomlParser::getNode(const QString &key)
 {
     toml::table* curTable = getCurTable();
-    if(curTable->contains(key.toUtf8().data())) {
-        toml::node* node = curTable->get(key.toUtf8().data());
+    if(curTable->contains(key.toStdString())) {
+        toml::node* node = curTable->get(key.toStdString());
         return node;
     }
     return nullptr;
@@ -217,84 +237,76 @@ toml::node *QtTomlParser::getNode(const QString &key)
 
 void QtTomlParser::setBool(const QString &key, const bool &value)
 {
-    toml::table* curTable = getCurTable();
-    curTable->insert_or_assign(key.toStdString(), value);
+    setValue<bool>(key, value);
 }
 
 void QtTomlParser::setInt(const QString &key, const int64_t &value)
 {
-    toml::table* curTable = getCurTable();
-    curTable->insert_or_assign(key.toStdString(), value);
+    setValue<int64_t>(key, value);
 }
 
 void QtTomlParser::setFloat(const QString &key, const double &value)
 {
-    toml::table* curTable = getCurTable();
-    curTable->insert_or_assign(key.toStdString(), value);
+    setValue<double>(key, value);
 }
 
 void QtTomlParser::setString(const QString &key, const QString &value)
 {
-    toml::table* curTable = getCurTable();
-    curTable->insert_or_assign(key.toStdString(), value.toUtf8().data());
+    std::string data = value.toStdString();
+    setValue<std::string>(key, data);
 }
 
 void QtTomlParser::setData(const QString &key, const QDate &value)
 {
-    toml::table* curTable = getCurTable();
-    toml::date d(value.year(), value.month(), value.day());
-    curTable->insert_or_assign(key.toStdString(), d);
+    toml::date data(value.year(), value.month(), value.day());
+    setValue<toml::date>(key, data);
 }
 
 void QtTomlParser::setTime(const QString &key, const QTime &value)
 {
-    toml::table* curTable = getCurTable();
-    toml::time t(value.hour(), value.minute(), value.second());
-    curTable->insert_or_assign(key.toStdString(), t);
+    toml::time data(value.hour(), value.minute(), value.second());
+    setValue<toml::time>(key, data);
 }
 
 void QtTomlParser::setDateTime(const QString &key, const QDateTime &value)
 {
-    toml::table* curTable = getCurTable();
     toml::date d(value.date().year(), value.date().month(), value.date().day());
     toml::time t(value.time().hour(), value.time().minute(), value.time().second());
     toml::date_time dt(d, t);
-    curTable->insert_or_assign(key.toStdString(), dt);
+    setValue<toml::date_time>(key, dt);
 }
 
-void QtTomlParser::setTable(const QString &key, const toml::table *value)
+void QtTomlParser::setTable(const QString &key, const toml::table& value)
 {
-    toml::table* curTable = getCurTable();
-    curTable->insert_or_assign(key.toStdString(), *value);
+    setValue<toml::table>(key, value);
 }
 
-void QtTomlParser::setArray(const QString &key, const toml::array *value)
+void QtTomlParser::setArray(const QString &key, const toml::array& value)
 {
-    toml::table* curTable = getCurTable();
-    curTable->insert_or_assign(key.toStdString(), *value);
+    setValue<toml::array>(key, value);
 }
 
-void QtTomlParser::setNode(const QString &key, const toml::node *value)
+void QtTomlParser::setNode(const QString &key, const toml::node& value)
 {
-    toml::table* curTable = getCurTable();
-    curTable->insert_or_assign(key.toStdString(), *value);
+    setValue<toml::node>(key, value);
 }
 
-bool QtTomlParser::saveFile(QString tomlFile)
+bool QtTomlParser::saveFile(const QString& tomlFile)
 {
-    if (tomlFile.isEmpty())
-        tomlFile = m_curPathFile;
-    if (tomlFile.isEmpty())
+    try{
+        if(getCurTable()->empty())
+            return false;
+        QString fileName = tomlFile;
+        if (fileName.isEmpty())
+            fileName = m_curPathFile;
+        if (fileName.isEmpty())
+            return false;
+        std::ofstream ofs(fileName.toStdString());
+        ofs << m_rootTable;
+        return true;
+    } catch(...) {
         return false;
-
-    QFile file(tomlFile);
-    if (!file.open(QIODevice::WriteOnly | QIODevice::Text))
-        return false;
-
-    const QString text = getTomlString();
-    file.write(text.toUtf8());
-
-    return true;
+    }
 }
 
 QString QtTomlParser::getTomlString()

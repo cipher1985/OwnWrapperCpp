@@ -50,4 +50,8 @@
 		<td>CJsonParser</td>
 		<td>json解析器类</td>
 	</tr>
+	<tr>
+		<td>CTomlParser</td>
+		<td>Toml解析器类</td>
+	</tr>
 </table>
