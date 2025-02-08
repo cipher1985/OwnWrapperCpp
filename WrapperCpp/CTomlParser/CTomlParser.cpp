@@ -95,7 +95,7 @@ void CTomlParser::outof()
 bool CTomlParser::getBool(const std::string &key, bool defaultValue)
 {
     toml::node* node = getNode(key);
-    if(!node)
+    if(!node || !node->is_boolean())
         return defaultValue;
     return node->as_boolean()->value_or(defaultValue);
 }
@@ -105,7 +105,16 @@ int64_t CTomlParser::getInt(const std::string &key, int64_t defaultValue)
     toml::node* node = getNode(key);
     if(!node)
         return defaultValue;
-    return node->as_integer()->value_or(defaultValue);
+
+    if(node->is_integer()) {
+        return node->as_integer()->value_or(defaultValue);
+    } else if(node->is_floating_point()) {
+        return (int64_t)node->as_floating_point()->value_or((double)defaultValue);
+    } else if(node->is_string()) {
+        std::string ret = node->as_string()->value_or(std::to_string(defaultValue));
+        return (int64_t)std::stoll(ret);
+    }
+    return defaultValue;
 }
 
 double CTomlParser::getFloat(const std::string &key, double defaultValue)
@@ -113,14 +122,23 @@ double CTomlParser::getFloat(const std::string &key, double defaultValue)
     toml::node* node = getNode(key);
     if(!node)
         return defaultValue;
-    return node->as_floating_point()->value_or(defaultValue);
+
+    if(node->is_integer()) {
+        return (double)node->as_integer()->value_or(defaultValue);
+    } else if(node->is_floating_point()) {
+        return node->as_floating_point()->value_or(defaultValue);
+    } else if(node->is_string()) {
+        std::string ret = node->as_string()->value_or(std::to_string(defaultValue));
+        return std::stod(ret);
+    }
+    return defaultValue;
 }
 
 std::string CTomlParser::getString(const std::string &key,
     const std::string& defaultValue)
 {
     toml::node* node = getNode(key);
-    if(!node)
+    if(!node || !node->is_string())
         return defaultValue;
     return node->as_string()->value_or(defaultValue);
 }
@@ -129,7 +147,7 @@ toml::date CTomlParser::getDate(const std::string &key,
     const toml::date& defaultValue)
 {
     toml::node* node = getNode(key);
-    if(!node)
+    if(!node || !node->is_date())
         return defaultValue;
     return node->as_date()->value_or(defaultValue);
 }
@@ -138,7 +156,7 @@ toml::time CTomlParser::getTime(const std::string &key,
     const toml::time& defaultValue)
 {
     toml::node* node = getNode(key);
-    if(!node)
+    if(!node || !node->is_time())
         return defaultValue;
     return node->as_time()->value_or(defaultValue);
 }
@@ -147,7 +165,7 @@ toml::date_time CTomlParser::getDateTime(const std::string &key,
     const toml::date_time& defaultValue)
 {
     toml::node* node = getNode(key);
-    if(!node)
+    if(!node || !node->is_date_time())
         return defaultValue;
     return node->as_date_time()->value_or(defaultValue);
 }

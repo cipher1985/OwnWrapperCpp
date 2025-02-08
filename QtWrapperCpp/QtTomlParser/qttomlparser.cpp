@@ -131,7 +131,7 @@ void QtTomlParser::outof()
 bool QtTomlParser::getBool(const QString &key, bool defaultValue)
 {
     toml::node* node = getNode(key);
-    if(!node)
+    if(!node || !node->is_boolean())
         return defaultValue;
     return node->as_boolean()->value_or(defaultValue);
 }
@@ -141,7 +141,16 @@ int64_t QtTomlParser::getInt(const QString &key, int64_t defaultValue)
     toml::node* node = getNode(key);
     if(!node)
         return defaultValue;
-    return node->as_integer()->value_or(defaultValue);
+
+    if(node->is_integer()) {
+        return node->as_integer()->value_or(defaultValue);
+    } else if(node->is_floating_point()) {
+        return (int64_t)node->as_floating_point()->value_or((double)defaultValue);
+    } else if(node->is_string()) {
+        std::string ret = node->as_string()->value_or(std::to_string(defaultValue));
+        return (int64_t)std::stoll(ret);
+    }
+    return defaultValue;
 }
 
 double QtTomlParser::getFloat(const QString &key, double defaultValue)
@@ -149,13 +158,22 @@ double QtTomlParser::getFloat(const QString &key, double defaultValue)
     toml::node* node = getNode(key);
     if(!node)
         return defaultValue;
-    return node->as_floating_point()->value_or(defaultValue);
+
+    if(node->is_integer()) {
+        return (double)node->as_integer()->value_or(defaultValue);
+    } else if(node->is_floating_point()) {
+        return node->as_floating_point()->value_or(defaultValue);
+    } else if(node->is_string()) {
+        std::string ret = node->as_string()->value_or(std::to_string(defaultValue));
+        return std::stod(ret);
+    }
+    return defaultValue;
 }
 
 QString QtTomlParser::getString(const QString &key, const QString& defaultValue)
 {
     toml::node* node = getNode(key);
-    if(!node)
+    if(!node || !node->is_string())
         return defaultValue;
     std::string ret = node->as_string()->value_or(defaultValue.toStdString());
     return QString::fromStdString(ret);
@@ -165,7 +183,7 @@ QDate QtTomlParser::getDate(const QString &key, const QDate& defaultValue)
 {
     toml::date d(defaultValue.year(), defaultValue.month(), defaultValue.day());
     toml::node* node = getNode(key);
-    if(!node)
+    if(!node || !node->is_date())
         return defaultValue;
     toml::date ret = node->as_date()->value_or(d);
     return QDate(ret.year, ret.month, ret.day);
@@ -175,7 +193,7 @@ QTime QtTomlParser::getTime(const QString &key, const QTime& defaultValue)
 {
     toml::time t(defaultValue.hour(), defaultValue.minute(), defaultValue.second());
     toml::node* node = getNode(key);
-    if(!node)
+    if(!node || !node->is_time())
         return defaultValue;
     toml::time ret = node->as_time()->value_or(t);
     return QTime(ret.hour, ret.minute, ret.second);
@@ -187,7 +205,7 @@ QDateTime QtTomlParser::getDateTime(const QString &key, const QDateTime& default
     toml::time t(defaultValue.time().hour(), defaultValue.time().minute(), defaultValue.time().second());
     toml::date_time dt(d, t);
     toml::node* node = getNode(key);
-    if(!node)
+    if(!node || !node->is_date_time())
         return defaultValue;
     toml::date_time ret = node->as_date_time()->value_or(dt);
     return QDateTime(
