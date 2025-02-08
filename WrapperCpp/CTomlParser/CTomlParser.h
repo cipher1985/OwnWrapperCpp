@@ -10,6 +10,9 @@ class CTomlParser
 public:
     //将toml字符串转为json字符串
     static std::string tomlToJson(const std::string& tomlString);
+    //指定字符分割字符串
+    static std::vector<std::string> split(
+        const std::string& s, const std::string& delimiter, bool skipEmpty = false);
 public:
     //加载toml文件
     bool loadFile(const std::string& tomlFile);
@@ -58,7 +61,21 @@ template<typename T>
 inline void CTomlParser::setValue(const std::string &key, const T &value)
 {
     toml::table* curTable = getCurTable();
-    curTable->insert_or_assign(key, value);
+    std::vector<std::string> parts = split(key, ".", true);
+    int count = (int)parts.size();
+    if(count == 0)
+        return;
+    //遍历键深入表
+    for (int i = 0; i < count - 1; ++i)
+    {
+        std::string part = parts[i];
+        if (!curTable->contains(part) ||
+            !curTable->at(part).is_table())
+            curTable->insert_or_assign(part, toml::table());
+        curTable = curTable->at(part).as_table();
+    }
+    //在最下层表中插入或更新值
+    curTable->insert_or_assign(parts[count - 1], value);
 }
 
 #endif // CTOMLPARSER_H

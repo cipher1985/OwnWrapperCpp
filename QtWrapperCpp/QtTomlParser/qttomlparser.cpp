@@ -130,67 +130,55 @@ void QtTomlParser::outof()
 
 bool QtTomlParser::getBool(const QString &key, bool defaultValue)
 {
-    try {
-        toml::node* node = getNode(key);
-        return node->as_boolean()->value_or(defaultValue);
-    } catch(...) {
+    toml::node* node = getNode(key);
+    if(!node)
         return defaultValue;
-    }
+    return node->as_boolean()->value_or(defaultValue);
 }
 
 int64_t QtTomlParser::getInt(const QString &key, int64_t defaultValue)
 {
-    try {
-        toml::node* node = getNode(key);
-        return node->as_integer()->value_or(defaultValue);
-    } catch(...) {
+    toml::node* node = getNode(key);
+    if(!node)
         return defaultValue;
-    }
+    return node->as_integer()->value_or(defaultValue);
 }
 
 double QtTomlParser::getFloat(const QString &key, double defaultValue)
 {
-    try {
-        toml::node* node = getNode(key);
-        return node->as_floating_point()->value_or(defaultValue);
-    } catch(...) {
+    toml::node* node = getNode(key);
+    if(!node)
         return defaultValue;
-    }
+    return node->as_floating_point()->value_or(defaultValue);
 }
 
 QString QtTomlParser::getString(const QString &key, const QString& defaultValue)
 {
-    try {
-        toml::node* node = getNode(key);
-        std::string ret = node->as_string()->value_or(defaultValue.toStdString());
-        return QString::fromStdString(ret);
-    } catch(...) {
+    toml::node* node = getNode(key);
+    if(!node)
         return defaultValue;
-    }
+    std::string ret = node->as_string()->value_or(defaultValue.toStdString());
+    return QString::fromStdString(ret);
 }
 
 QDate QtTomlParser::getDate(const QString &key, const QDate& defaultValue)
 {
     toml::date d(defaultValue.year(), defaultValue.month(), defaultValue.day());
-    try {
-        toml::node* node = getNode(key);
-        toml::date ret = node->as_date()->value_or(d);
-        return QDate(ret.year, ret.month, ret.day);
-    } catch(...) {
+    toml::node* node = getNode(key);
+    if(!node)
         return defaultValue;
-    }
+    toml::date ret = node->as_date()->value_or(d);
+    return QDate(ret.year, ret.month, ret.day);
 }
 
 QTime QtTomlParser::getTime(const QString &key, const QTime& defaultValue)
 {
     toml::time t(defaultValue.hour(), defaultValue.minute(), defaultValue.second());
-    try {
-        toml::node* node = getNode(key);
-        toml::time ret = node->as_time()->value_or(t);
-        return QTime(ret.hour, ret.minute, ret.second);
-    } catch(...) {
+    toml::node* node = getNode(key);
+    if(!node)
         return defaultValue;
-    }
+    toml::time ret = node->as_time()->value_or(t);
+    return QTime(ret.hour, ret.minute, ret.second);
 }
 
 QDateTime QtTomlParser::getDateTime(const QString &key, const QDateTime& defaultValue)
@@ -198,15 +186,13 @@ QDateTime QtTomlParser::getDateTime(const QString &key, const QDateTime& default
     toml::date d(defaultValue.date().year(), defaultValue.date().month(), defaultValue.date().day());
     toml::time t(defaultValue.time().hour(), defaultValue.time().minute(), defaultValue.time().second());
     toml::date_time dt(d, t);
-    try {
-        toml::node* node = getNode(key);
-        toml::date_time ret = node->as_date_time()->value_or(dt);
-        return QDateTime(
-            QDate(ret.date.year, ret.date.month, ret.date.day),
-            QTime(ret.time.hour, ret.time.minute, ret.time.second));
-    } catch(...) {
+    toml::node* node = getNode(key);
+    if(!node)
         return defaultValue;
-    }
+    toml::date_time ret = node->as_date_time()->value_or(dt);
+    return QDateTime(
+        QDate(ret.date.year, ret.date.month, ret.date.day),
+        QTime(ret.time.hour, ret.time.minute, ret.time.second));
 }
 
 toml::table *QtTomlParser::getTable(const QString &key)
@@ -228,11 +214,21 @@ toml::array *QtTomlParser::getArray(const QString &key)
 toml::node *QtTomlParser::getNode(const QString &key)
 {
     toml::table* curTable = getCurTable();
-    if(curTable->contains(key.toStdString())) {
-        toml::node* node = curTable->get(key.toStdString());
-        return node;
+    QList<QString> parts = key.split('.', Qt::SkipEmptyParts);
+    int count = parts.count();
+    if(count == 0)
+        return nullptr;
+    QString curKey;
+    for(int i = 0; i < count - 1; ++i) {
+        curKey = parts.at(i);
+        toml::node* node = curTable->get(curKey.toStdString());
+        if(!node || !node->is_table())
+            return nullptr;
+        curTable = node->as_table();
     }
-    return nullptr;
+    curKey = parts.at(count - 1);
+    toml::node* node = curTable->get(curKey.toStdString());
+    return node;
 }
 
 void QtTomlParser::setBool(const QString &key, const bool &value)

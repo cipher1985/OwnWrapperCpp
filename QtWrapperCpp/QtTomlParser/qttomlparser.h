@@ -66,7 +66,21 @@ template<typename T>
 inline void QtTomlParser::setValue(const QString &key, const T &value)
 {
     toml::table* curTable = getCurTable();
-    curTable->insert_or_assign(key.toUtf8().data(), value);
+    QList<QString> parts = key.split('.', Qt::SkipEmptyParts);
+    int count = parts.count();
+    if(count == 0)
+        return;
+    //遍历键深入表
+    for (int i = 0; i < count - 1; ++i)
+    {
+        QString part = parts.at(i);
+        if (!curTable->contains(part.toStdString()) ||
+            !curTable->at(part.toStdString()).is_table())
+            curTable->insert_or_assign(part.toStdString(), toml::table());
+        curTable = curTable->at(part.toStdString()).as_table();
+    }
+    //在最下层表中插入或更新值
+    curTable->insert_or_assign(parts.last().toStdString(), value);
 }
 
 #endif // QTTOMLPARSER_H

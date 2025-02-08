@@ -15,6 +15,36 @@ std::string CTomlParser::tomlToJson(const std::string &tomlString)
     }
 }
 
+std::vector<std::string> CTomlParser::split(
+    const std::string &s, const std::string &delimiter, bool skipEmpty)
+{
+    std::vector<std::string> result;
+    if(delimiter.empty())
+        return result;
+
+    size_t start = 0;
+    size_t end = 0;
+
+    while ((end = s.find(delimiter, start)) != std::string::npos)
+    {
+        std::string token = s.substr(start, end - start);
+        if (!skipEmpty || !token.empty())
+        {
+            result.push_back(token);
+        }
+        start = end + delimiter.length();
+    }
+
+    //添加末尾子字符串
+    std::string lastToken = s.substr(start);
+    if (!skipEmpty || !lastToken.empty())
+    {
+        result.push_back(lastToken);
+    }
+
+    return result;
+}
+
 bool CTomlParser::loadFile(const std::string &tomlFile)
 {
     try {
@@ -43,14 +73,16 @@ bool CTomlParser::loadText(const std::string &tomlString)
 
 bool CTomlParser::into(const std::string &key)
 {
-    toml::table* curTable = getCurTable();
-    if (!curTable || !curTable->contains(key))
-        return false;
-    auto node = curTable->get(key);
-    if(!node || !node->is_table())
-        return false;
-    curTable = node->as_table();
-    m_nodeStack.push(curTable);
+    auto* current = getCurTable();
+    auto parts = split(key, ".", true);
+
+    for(auto& part : parts) {
+        auto node = current->get(part);
+        if(!node || !node->is_table())
+            return false;
+        current = node->as_table();
+        m_nodeStack.push(current);
+    }
     return true;
 }
 
@@ -62,76 +94,62 @@ void CTomlParser::outof()
 
 bool CTomlParser::getBool(const std::string &key, bool defaultValue)
 {
-    try {
-        toml::node* node = getNode(key);
-        return node->as_boolean()->value_or(defaultValue);
-    } catch(...) {
+    toml::node* node = getNode(key);
+    if(!node)
         return defaultValue;
-    }
+    return node->as_boolean()->value_or(defaultValue);
 }
 
 int64_t CTomlParser::getInt(const std::string &key, int64_t defaultValue)
 {
-    try {
-        toml::node* node = getNode(key);
-        return node->as_boolean()->value_or(defaultValue);
-    } catch(...) {
+    toml::node* node = getNode(key);
+    if(!node)
         return defaultValue;
-    }
+    return node->as_integer()->value_or(defaultValue);
 }
 
 double CTomlParser::getFloat(const std::string &key, double defaultValue)
 {
-    try {
-        toml::node* node = getNode(key);
-        return node->as_floating_point()->value_or(defaultValue);
-    } catch(...) {
+    toml::node* node = getNode(key);
+    if(!node)
         return defaultValue;
-    }
+    return node->as_floating_point()->value_or(defaultValue);
 }
 
 std::string CTomlParser::getString(const std::string &key,
     const std::string& defaultValue)
 {
-    try {
-        toml::node* node = getNode(key);
-        return node->as_string()->value_or(defaultValue);
-    } catch(...) {
+    toml::node* node = getNode(key);
+    if(!node)
         return defaultValue;
-    }
+    return node->as_string()->value_or(defaultValue);
 }
 
 toml::date CTomlParser::getDate(const std::string &key,
     const toml::date& defaultValue)
 {
-    try {
-        toml::node* node = getNode(key);
-        return node->as_date()->value_or(defaultValue);
-    } catch(...) {
+    toml::node* node = getNode(key);
+    if(!node)
         return defaultValue;
-    }
+    return node->as_date()->value_or(defaultValue);
 }
 
 toml::time CTomlParser::getTime(const std::string &key,
     const toml::time& defaultValue)
 {
-    try {
-        toml::node* node = getNode(key);
-        return node->as_time()->value_or(defaultValue);
-    } catch(...) {
+    toml::node* node = getNode(key);
+    if(!node)
         return defaultValue;
-    }
+    return node->as_time()->value_or(defaultValue);
 }
 
 toml::date_time CTomlParser::getDateTime(const std::string &key,
     const toml::date_time& defaultValue)
 {
-    try {
-        toml::node* node = getNode(key);
-        return node->as_date_time()->value_or(defaultValue);
-    } catch(...) {
+    toml::node* node = getNode(key);
+    if(!node)
         return defaultValue;
-    }
+    return node->as_date_time()->value_or(defaultValue);
 }
 
 toml::table *CTomlParser::getTable(const std::string &key)
@@ -153,11 +171,21 @@ toml::array *CTomlParser::getArray(const std::string &key)
 toml::node *CTomlParser::getNode(const std::string &key)
 {
     toml::table* curTable = getCurTable();
-    if(curTable->contains(key)) {
-        toml::node* node = curTable->get(key);
-        return node;
+    std::vector<std::string> parts = split(key, ".", true);
+    int count = (int)parts.size();
+    if(count == 0)
+        return nullptr;
+    std::string curKey;
+    for(int i = 0; i < count - 1; ++i) {
+        curKey = parts.at(i);
+        toml::node* node = curTable->get(curKey);
+        if(!node || !node->is_table())
+            return nullptr;
+        curTable = node->as_table();
     }
-    return nullptr;
+    curKey = parts.at(count - 1);
+    toml::node* node = curTable->get(curKey);
+    return node;
 }
 
 void CTomlParser::setBool(const std::string &key, const bool &value)
