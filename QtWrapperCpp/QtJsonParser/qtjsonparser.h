@@ -9,6 +9,9 @@
 * 版本:       1.0
 * 修改时间:    2024-12-20
 *
+* 版本:       1.1
+* 修改时间:    2025-04-02
+*
 ********************************************************/
 #ifndef QJSON_PARSER_H
 #define QJSON_PARSER_H
@@ -33,8 +36,10 @@ public:
 public:
     //加载Json文件
     bool loadFile(const QString& jsonFile);
-    //加载Json字符串
+    //加载json字符串
     bool loadText(const QString& jsonString);
+    //加载json对象
+    bool loadJson(const QJsonObject& jsonObj);
     //进入节点
     bool into(const QString& key);
     //返回节点

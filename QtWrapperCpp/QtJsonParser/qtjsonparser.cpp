@@ -61,6 +61,15 @@ bool QtJsonParser::loadText(const QString& jsonString)
     return true;
 }
 
+bool QtJsonParser::loadJson(const QJsonObject &jsonObj)
+{
+    if(jsonObj.isEmpty())
+        return false;
+
+    m_nodes.push_back(node{"", jsonObj});
+    return true;
+}
+
 bool QtJsonParser::into(const QString &key)
 {
     if(m_nodes.count() == 0)
@@ -74,7 +83,7 @@ bool QtJsonParser::into(const QString &key)
     if(!v.isObject())
         return false;
 
-    m_nodes.push_back(node{key, obj});
+    m_nodes.push_back(node{key, v.toObject()});
     return true;
 }
 void QtJsonParser::outof()
