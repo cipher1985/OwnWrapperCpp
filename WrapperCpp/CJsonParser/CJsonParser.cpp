@@ -89,7 +89,7 @@ bool CJsonParser::Into(const Json::String& key)
 	Json::Value v = obj[key];
 	if (!v.isObject())
 		return false;
-	m_nodes.push_back(node{ key, obj });
+	m_nodes.push_back(node{ key, v });
 	return true;
 }
 
